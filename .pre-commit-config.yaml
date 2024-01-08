@@ -1,0 +1,53 @@
+# FORMATTER NOTE: The versions of ufmt, black and usort should be consistent everywhere
+# (pre-commit, environment.yml, requirements.txt, pyproject.toml, ...)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ["--unsafe"]
+      - id: check-added-large-files
+        args: ["--maxkb=5000"]
+  - repo: https://github.com/jsh9/pydoclint
+    rev: 0.2.1
+    hooks:
+      - id: pydoclint
+        args: [--config=pydoclint.toml]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.6
+    hooks:
+      - id: ruff
+        name: "ruff"
+        exclude: ^test/
+        args: ["--fix"]
+      - id: ruff-format
+        exclude: ^test/
+  - repo: https://github.com/pre-commit/mirrors-isort
+    rev: v5.10.1
+    hooks:
+      - id: isort
+        name: Sorts imports
+        exclude: ^test/
+        args: [
+            # Align isort with black formatting
+            "--multi-line=3",
+            "--trailing-comma",
+            "--force-grid-wrap=0",
+            "--use-parentheses",
+            "--line-width=88",
+          ]
+  - repo: local
+    hooks:
+      - id: system
+        name: MyPy
+        entry: python -m mypy.__main__
+        language: system
+        files: \.py$
+        exclude: ^test/|/data_compilation.py
+        args:
+          - --strict
+          - --implicit-reexport
+          - --ignore-missing-imports

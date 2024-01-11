@@ -31,4 +31,5 @@ htmlcov
 *.png
 
 # Data files
-data/
+DATA/
+*.db

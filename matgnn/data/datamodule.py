@@ -10,6 +10,7 @@ from torch_geometric.data.dataset import Dataset
 
 from ..utils.input_parameters import DataModuleParameters
 from ..utils.validation import validate_data_module_parameters
+from .utils import create_dataset
 
 
 class MaterialsGraphDataModule(pl.LightningDataModule):
@@ -26,7 +27,7 @@ class MaterialsGraphDataModule(pl.LightningDataModule):
     def __init__(self, params: DataModuleParameters):
         super().__init__()
         validate_data_module_parameters(params)
-        self.dataset = params.data  # create_dataset(dataset_params)
+        self.dataset = create_dataset(params.dataset_params)
         self.batch_size = params.batch_size
         self.num_workers = params.num_workers
         self.test_ratio = params.test_ratio
@@ -46,17 +47,17 @@ class MaterialsGraphDataModule(pl.LightningDataModule):
             raise ValueError(
                 "The stage must be one of the following: " "train, predict."
             )
-        size = self.dataset.size  # type: ignore
+        size = self.dataset.size
         if stage == "train":
             train_indices, test_indices = train_test_split(
                 range(size), test_size=self.test_ratio
             )
             self.training_data = torch.utils.data.Subset(
-                self.dataset,  # type: ignore
+                self.dataset,
                 train_indices,
             )
             self.testing_data = torch.utils.data.Subset(
-                self.dataset,  # type: ignore
+                self.dataset,
                 test_indices,
             )
         if stage == "predict":

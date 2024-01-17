@@ -22,7 +22,7 @@ def download_c2db_data() -> None:
             mol = Atoms(
                 cell=datum["atoms"]["lattice_mat"],
                 positions=datum["atoms"]["coords"],
-                pbc=[True, True, False],
+                pbc=[True, True, True],
                 symbols=datum["atoms"]["elements"],
             )
 

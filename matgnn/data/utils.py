@@ -1,22 +1,10 @@
-"""Utility funtions for datasets."""
+"""Utility funtions for data module."""
 from typing import Union
 
 from torch_geometric.data import Dataset, InMemoryDataset
 
-from ..utils.input_parameters import DatasetParameters
 from .dataset.in_memory_dataset import MolGraphInMemoryDataset
-
-
-def get_dir_name(dataset_params: DatasetParameters) -> str:
-    """Get directory name.
-
-    Args:
-        dataset_params (DatasetParameters): Dataset parameters.
-
-    Returns:
-        str: Directory name.
-    """
-    return f"{dataset_params.feature_type}"
+from .dataset.input_parameters import DatasetParameters
 
 
 def create_dataset(

@@ -7,9 +7,9 @@ from ase import db
 from dscribe.descriptors import CoulombMatrix, SineMatrix
 from torch_geometric.data import Data, InMemoryDataset
 
-from ...utils.input_parameters import DatasetParameters
-from ...utils.validation import validate_dataset_parameters
+from .input_parameters import DatasetParameters
 from .utils import get_dir_name
+from .validation import validate_dataset_parameters
 
 
 class MolGraphInMemoryDataset(InMemoryDataset):  # type: ignore
@@ -21,11 +21,12 @@ class MolGraphInMemoryDataset(InMemoryDataset):  # type: ignore
 
     def __init__(self, params: DatasetParameters) -> None:
         validate_dataset_parameters(params)
-        root = Path(__file__).resolve().parents[2] / "data" / get_dir_name(params)
-        super(InMemoryDataset, self).__init__(root=root)
         self.params = params
+        root = Path(params.ase_db_loc).parent / get_dir_name(params)
         if not root.exists():
             root.mkdir()
+        super(InMemoryDataset, self).__init__(root=root)
+        self.load(self.processed_paths[0])
 
     @property
     def processed_file_names(self) -> List[str]:
@@ -68,12 +69,10 @@ class MolGraphInMemoryDataset(InMemoryDataset):  # type: ignore
                 n_atoms_max=data_statistics["max_natoms"],
                 permutation="eigenspectrum",
                 sparse=False,
-                flatten=True,
             )
         else:
             return SineMatrix(
                 n_atoms_max=data_statistics["max_natoms"],
                 permutation="eigenspectrum",
                 sparse=False,
-                flatten=True,
             )

@@ -33,3 +33,5 @@ htmlcov
 # Data files
 DATA/
 *.db
+!dummy.db
+CM/

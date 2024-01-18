@@ -8,9 +8,9 @@ from torch.utils.data import DataLoader
 from torch_geometric.data import Data
 from torch_geometric.data.dataset import Dataset
 
-from ..utils.input_parameters import DataModuleParameters
-from ..utils.validation import validate_data_module_parameters
+from .input_parameters import DataModuleParameters
 from .utils import create_dataset
+from .validation import validate_data_module_parameters
 
 
 class MaterialsGraphDataModule(pl.LightningDataModule):

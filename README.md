@@ -25,7 +25,21 @@ sys.path.append("/path/to/matgnn")
 ## TODO
 
 ```[tasklist]
-- [ ] Replace data in data module with dataset parameters
+Features
+- [ ] SOAP
+- [ ] ACSF
+- [ ] Atomic graph
+Models
+- [ ] CGCNN
+- [ ] GCN
+- [ ] MEGNET
+- [ ] MPNN
+- [ ] SCHNET
+Data
+- [ ] Dataset
+
+- [ ] Trainer
+- [ ] Hyperparameter
 ```
 
 ## Author

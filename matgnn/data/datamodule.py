@@ -1,5 +1,6 @@
 """Data Module for MatGNN"""
 
+from typing import Any, Dict, NamedTuple
 
 import pytorch_lightning as pl
 import torch
@@ -7,10 +8,58 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torch_geometric.data import Data
 from torch_geometric.data.dataset import Dataset
+from torch_geometric.loader import DataLoader as GeoDataLoader
 
-from .input_parameters import DataModuleParameters
-from .utils import create_dataset
-from .validation import validate_data_module_parameters
+from .create_dataset import create_dataset
+from .dataset.utils import DatasetParameters, validate_dataset_parameters
+
+
+class DataModuleParameters(NamedTuple):
+    """Inpute parameters for the MatGNN data module.
+
+    Args:
+        dataset_params (DatasetParameters): dataset parameters.
+        batch_size (Optional[int]): The batch size. Defaults to 64.
+        num_workers (Optional[int]): The number of workers. Defaults to 1.
+        val_ratio (float): The ratio of validation to training. Defaults to 0.2.
+    """
+
+    dataset_params: DatasetParameters
+    batch_size: int = 64
+    num_workers: int = 12
+    val_ratio: float = 0.2
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Returns a dictionary representation of the DataModuleParameters.
+
+        Returns:
+            dict: A dictionary representation of the DataModuleParameters.
+        """
+        return {
+            "dataset_params": self.dataset_params.to_dict(),
+            "batch_size": self.batch_size,
+            "num_workers": self.num_workers,
+            "val_ratio": self.val_ratio,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DataModuleParameters":
+        """Creates a DataModuleParameters object from a dictionary.
+
+        Args:
+            data (dict): A dictionary representation of the DataModuleParameters.
+
+        Returns:
+            DataModuleParameters: A DataModuleParameters object.
+        """
+        return cls(
+            dataset_params=DatasetParameters.from_dict(
+                data.get("dataset_params", {"feature_type": "CM"})
+            ),
+            batch_size=data.get("batch_size", 64),
+            num_workers=data.get("num_workers", 1),
+            val_ratio=data.get("val_ratio", 0.2),
+        )
 
 
 class MaterialsGraphDataModule(pl.LightningDataModule):
@@ -30,7 +79,7 @@ class MaterialsGraphDataModule(pl.LightningDataModule):
         self.dataset = create_dataset(params.dataset_params)
         self.batch_size = params.batch_size
         self.num_workers = params.num_workers
-        self.test_ratio = params.test_ratio
+        self.val_ratio = params.val_ratio
 
     def setup(self, stage: str = "train") -> None:
         """Sets up the data loaders for graph learning.
@@ -47,26 +96,26 @@ class MaterialsGraphDataModule(pl.LightningDataModule):
             raise ValueError(
                 "The stage must be one of the following: " "train, predict."
             )
-        size = self.dataset.size
+        size = self.dataset.len()
         if stage == "train":
-            train_indices, test_indices = train_test_split(
-                range(size), test_size=self.test_ratio
+            train_indices, val_indices = train_test_split(
+                range(size), test_size=self.val_ratio
             )
-            self.training_data = torch.utils.data.Subset(
+            self.train_data = torch.utils.data.Subset(
                 self.dataset,
                 train_indices,
             )
-            self.testing_data = torch.utils.data.Subset(
+            self.val_data = torch.utils.data.Subset(
                 self.dataset,
-                test_indices,
+                val_indices,
             )
         if stage == "predict":
             self.prediction_data: Dataset = self.dataset
 
     def train_dataloader(self) -> DataLoader[Data]:
         """Returns the training dataloader."""
-        return DataLoader(
-            self.training_data,
+        return GeoDataLoader(  # type: ignore
+            self.train_data,
             batch_size=self.batch_size,
             shuffle=True,
             pin_memory=True,
@@ -74,10 +123,10 @@ class MaterialsGraphDataModule(pl.LightningDataModule):
             drop_last=True,
         )
 
-    def test_dataloader(self) -> DataLoader[Data]:
-        """Returns the test dataloader."""
-        return DataLoader(
-            self.testing_data,
+    def val_dataloader(self) -> DataLoader[Data]:
+        """Returns the val dataloader."""
+        return GeoDataLoader(  # type: ignore
+            self.val_data,
             batch_size=self.batch_size,
             shuffle=False,
             pin_memory=True,
@@ -86,10 +135,30 @@ class MaterialsGraphDataModule(pl.LightningDataModule):
 
     def predict_dataloader(self) -> DataLoader[Data]:
         """Returns the test dataloader."""
-        return DataLoader(
+        return GeoDataLoader(  # type: ignore
             self.prediction_data,
             batch_size=self.batch_size,
             shuffle=False,
             pin_memory=True,
             num_workers=self.num_workers,
         )
+
+
+def validate_data_module_parameters(
+    params: DataModuleParameters,
+) -> None:
+    """Validate input parameters for MatGNN data module.
+
+    Args:
+        params (DataModuleParameters): Input parameters.
+    """
+
+    if params.dataset_params is None:
+        raise ValueError("dataset_params must be specified.")
+    validate_dataset_parameters(params.dataset_params)
+    if not isinstance(params.batch_size, int):
+        raise ValueError("batch_size must be an integer.")
+    if not isinstance(params.num_workers, int):
+        raise ValueError("num_workers must be an integer.")
+    if not 0 <= params.val_ratio <= 1:
+        raise ValueError("val_ratio must be between 0 and 1.")

@@ -4,7 +4,7 @@ from typing import Union
 from torch_geometric.data import Dataset, InMemoryDataset
 
 from .dataset.in_memory_dataset import MolGraphInMemoryDataset
-from .dataset.input_parameters import DatasetParameters
+from .dataset.utils import DatasetParameters
 
 
 def create_dataset(

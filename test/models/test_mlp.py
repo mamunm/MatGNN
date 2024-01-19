@@ -49,7 +49,7 @@ def test_mlp_parameters_valid_inputs() -> None:
     mlp = MLP(input_size=256, mlp_params=params)
     assert isinstance(mlp, MLP)
 
-def test_mlp_forward() -> None:
+def test_mlp_forward_single_input() -> None:
     """Test the MLP forward pass."""
     params = MLPParameters(
         n_hidden_layers=4,
@@ -62,3 +62,17 @@ def test_mlp_forward() -> None:
     data = Data(x=torch.randn(256))
     output = mlp(data)
     assert output.shape == torch.Size([1])
+
+def test_mlp_forward_batch_input() -> None:
+    """Test the MLP forward pass."""
+    params = MLPParameters(
+        n_hidden_layers=4,
+        base2=True,
+        activation="relu",
+        activation_parameters={},
+        layer_norm=True
+    )
+    mlp = MLP(input_size=256, mlp_params=params)
+    data = Data(x=torch.randn(5, 256))
+    output = mlp(data)
+    assert output.shape == torch.Size([5, 1])

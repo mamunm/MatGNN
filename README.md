@@ -26,8 +26,8 @@ sys.path.append("/path/to/matgnn")
 
 ```[tasklist]
 Features
-- [ ] SOAP
-- [ ] ACSF
+- [X] SOAP
+- [X] ACSF
 - [ ] Atomic graph
 Models
 - [ ] CGCNN
@@ -38,7 +38,11 @@ Models
 Data
 - [ ] Dataset
 
-- [ ] Trainer
+Trainer
+- [ ] Test metrics
+- [ ] logger
+- [ ] saving and loading
+- [ ] continue training
 - [ ] Hyperparameter
 ```
 

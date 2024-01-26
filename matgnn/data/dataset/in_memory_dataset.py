@@ -8,6 +8,7 @@ from ase import db
 from dscribe.descriptors import ACSF, SOAP, CoulombMatrix, SineMatrix
 from torch_geometric.data import Data, InMemoryDataset
 
+from .atom_graph import get_atom_graph_data
 from .utils import (
     DatasetParameters,
     get_data_statistics,
@@ -36,7 +37,7 @@ class MolGraphInMemoryDataset(InMemoryDataset):  # type: ignore
         root = Path(params.ase_db_loc).parent / get_dir_name(params)
         if not root.exists():
             root.mkdir()
-        super(InMemoryDataset, self).__init__(root=root)
+        super(MolGraphInMemoryDataset, self).__init__(root=root)
         self.load(self.processed_paths[0])
         self.n_features = self._data.x.shape[1]
 
@@ -47,21 +48,28 @@ class MolGraphInMemoryDataset(InMemoryDataset):  # type: ignore
 
     def process(self) -> None:
         """Process data."""
-        data_list = []
-        dtype = DTYPE_MAP[self.params.dtype]
+        if self.params.feature_type in ["CM", "SM", "SOAP", "ACSF"]:
+            data_list = []
+            dtype = DTYPE_MAP[self.params.dtype]
 
-        ase_db = db.connect(self.params.ase_db_loc)
+            ase_db = db.connect(self.params.ase_db_loc)
 
-        feature_constructor = self.get_feature_constructor()
+            feature_constructor = self.get_feature_constructor()
 
-        for struct in ase_db.select():
-            y = getattr(struct, self.params.target)
-            x = feature_constructor.create(struct.toatoms())
-            data_list.append(
-                Data(
-                    x=torch.tensor(x, dtype=dtype).reshape(1, -1),
-                    y=torch.tensor(y, dtype=dtype),
+            for struct in ase_db.select():
+                y = getattr(struct, self.params.target)
+                x = feature_constructor.create(struct.toatoms())
+                data_list.append(
+                    Data(
+                        x=torch.tensor(x, dtype=dtype).reshape(1, -1),
+                        y=torch.tensor(y, dtype=dtype),
+                    )
                 )
+        else:
+            data_list = get_atom_graph_data(
+                self.params.ase_db_loc,
+                self.params.extra_parameters,  # type: ignore
+                dtype=DTYPE_MAP[self.params.dtype],
             )
 
         self.save(data_list, self.processed_paths[0])

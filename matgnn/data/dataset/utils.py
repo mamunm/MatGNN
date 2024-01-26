@@ -4,7 +4,31 @@ import functools
 from pathlib import Path
 from typing import Any, Dict, Literal, NamedTuple
 
+import torch
 from ase import db
+from torch import Tensor
+
+
+class AtomGraphParameters(NamedTuple):
+    """Input parameters for the dataset.
+
+    Args:
+        feature_type (Literal["atomic_number", "atomic_symbol"]): The type of the feature.
+        self_loop (bool, optional): whether to add self loop. Defaults to False.
+        graph_radius (float, optional): graph radius. Defaults to 5.
+        max_neighbors (int, optional): maximum number of neighbors. Defaults to 5.
+        edge_feature (bool, optional): whether to add edge features. Defaults to False.
+        edge_resolution (float, optional): edge resolution. Defaults to 50.
+        add_node_degree (bool, optional): whether to add node degree. Defaults to False.
+    """
+
+    feature_type: Literal["atomic_number", "atomic_symbol"]
+    self_loop: bool = False
+    graph_radius: float = 5
+    max_neighbors: int = 5
+    edge_feature: bool = False
+    edge_resolution: int = 50
+    add_node_degree: bool = False
 
 
 class DatasetParameters(NamedTuple):
@@ -17,7 +41,7 @@ class DatasetParameters(NamedTuple):
         dtype (str): The data type. Default is 64.
     """
 
-    feature_type: Literal["CM", "SM", "SOAP", "ACSF"]
+    feature_type: Literal["CM", "SM", "SOAP", "ACSF", "AtomGraph"]
     ase_db_loc: str
     target: str
     dtype: str = "64"
@@ -113,9 +137,10 @@ def validate_dataset_parameters(params: DatasetParameters) -> None:
         params (DatasetParameters): Input parameters.
     """
 
-    if params.feature_type not in ["CM", "SM", "SOAP", "ACSF"]:
+    if params.feature_type not in ["CM", "SM", "SOAP", "ACSF", "AtomGraph"]:
         raise ValueError(
-            "feature_type must be one of the following: " "CM, SM, SOAP, ACSF"
+            "feature_type must be one of the following: "
+            "CM, SM, SOAP, ACSF, AtomGraph."
         )
     if not isinstance(params.ase_db_loc, str):
         raise ValueError("ase_db_loc must be a string.")
@@ -149,3 +174,38 @@ def validate_dataset_parameters(params: DatasetParameters) -> None:
             raise ValueError("g4_params must be specified in extra_parameters.")
         if "g5_params" not in params.extra_parameters:
             raise ValueError("g5_params must be specified in extra_parameters.")
+
+
+class GaussianSmearing(torch.nn.Module):
+    """Gaussian smearing.
+
+    Args:
+        start (float, optional): Start value. Defaults to 0.0.
+        stop (float, optional): Stop value. Defaults to 5.0.
+        resolution (int, optional): Resolution. Defaults to 50.
+        width (float, optional): Width. Defaults to 0.05.
+    """
+
+    def __init__(
+        self,
+        start: float = 0.0,
+        stop: float = 5.0,
+        resolution: int = 50,
+        width: float = 0.05,
+    ):
+        super(GaussianSmearing, self).__init__()
+        offset = torch.linspace(start, stop, resolution)
+        self.coeff = -0.5 / ((stop - start) * width) ** 2
+        self.register_buffer("offset", offset)
+
+    def forward(self, dist: Tensor) -> Tensor:
+        """Forward pass.
+
+        Args:
+            dist (torch.Tensor): Distance.
+
+        Returns:
+            torch.Tensor: Smoothed distance.
+        """
+        dist = dist.unsqueeze(-1) - self.offset.view(1, -1)
+        return torch.exp(self.coeff * torch.pow(dist, 2))

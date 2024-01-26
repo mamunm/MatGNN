@@ -150,7 +150,7 @@ class MatGNN(pl.LightningModule):
             outputs (List[Dict[str, Tensor]]): the loss of each batch in the epoch
         """
         mean_loss = torch.mean(torch.tensor(self.train_outputs))
-        self.log("train_loss", mean_loss, on_epoch=True)
+        self.log("train_loss", mean_loss, on_epoch=True, prog_bar=False)
         logger.info(f"Epoch: {self.current_epoch} | Training loss: {mean_loss}")
 
     def validation_step(self, batch: Tuple[Data], batch_idx: int) -> Dict[str, float]:
@@ -177,7 +177,7 @@ class MatGNN(pl.LightningModule):
         """
         val_loss = torch.mean(torch.tensor(self.val_outputs))
 
-        self.log("val_loss", val_loss, on_epoch=True)
+        self.log("val_loss", val_loss, on_epoch=True, prog_bar=False)
         logger.info(f"Epoch: {self.current_epoch} | Validation loss: {val_loss}")
 
 

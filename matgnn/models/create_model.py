@@ -5,9 +5,10 @@ from typing import Dict, Union
 import torch
 from torch import nn
 
+from .conv_nn import ConvolutionGNNParameters, GraphConvolution
 from .mlp import MLP, MLPParameters, validate_mlp_parameters
 
-ModelParams = Union[MLPParameters, None]
+ModelParams = Union[MLPParameters, ConvolutionGNNParameters]
 
 DTYPE_MAP: Dict[str, torch.dtype] = {
     "f64": torch.float64,
@@ -26,7 +27,7 @@ def validate_model_parameters(model_params: ModelParams) -> None:
     Raises:
         ValueError: If the input parameters are invalid.
     """
-    if model_params is not None:
+    if isinstance(model_params, MLPParameters):
         validate_mlp_parameters(model_params)
 
 
@@ -41,7 +42,7 @@ def create_model(model_params: ModelParams) -> nn.Module:
     """
     dtype = DTYPE_MAP[model_params.dtype]  # type: ignore
     validate_model_parameters(model_params)
-    if model_params is not None:
+    if isinstance(model_params, MLPParameters):
         return MLP(model_params).to(dtype=dtype)
     else:
-        return None  # type: ignore
+        return GraphConvolution(model_params).to(dtype=dtype)

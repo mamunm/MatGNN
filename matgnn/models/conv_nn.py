@@ -51,6 +51,45 @@ class ConvolutionGNNParameters(NamedTuple):
     dropout: float = 0.0
     schnet_cutoff: float = 8
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Returns a dictionary representation of the ConvolutionGNNParameters.
+
+        Returns:
+            dict: A dictionary representation of the ConvolutionGNNParameters.
+        """
+        return {
+            "n_features": self.n_features,
+            "n_edge_features": self.n_edge_features,
+            "batch_size": self.batch_size,
+            "pre_hidden_size": self.pre_hidden_size,
+            "post_hidden_size": self.post_hidden_size,
+            "gcn_type": self.gcn_type,
+            "gcn_hidden_size": self.gcn_hidden_size,
+            "n_pre_gcn_layers": self.n_pre_gcn_layers,
+            "n_post_gcn_layers": self.n_post_gcn_layers,
+            "n_gcn": self.n_gcn,
+            "pool": self.pool,
+            "pool_order": self.pool_order,
+            "batch_norm": self.batch_norm,
+            "track_running_stats": self.track_running_stats,
+            "activation": self.activation,
+            "dropout": self.dropout,
+            "schnet_cutoff": self.schnet_cutoff,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ConvolutionGNNParameters":
+        """Constructs a ConvolutionGNNParameters from a dictionary.
+
+        Args:
+            data (Dict[str, Any]): A dictionary representation of the
+                ConvolutionGNNParameters.
+
+        Returns:
+            ConvolutionGNNParameters: A ConvolutionGNNParameters object.
+        """
+        return cls(**data)
+
 
 class GraphConvolution(nn.Module):
     """

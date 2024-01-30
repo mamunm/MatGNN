@@ -1,6 +1,6 @@
 """Data Module for MatGNN"""
 
-from typing import Any, Dict, NamedTuple
+from typing import NamedTuple
 
 import pytorch_lightning as pl
 import torch
@@ -18,48 +18,18 @@ class DataModuleParameters(NamedTuple):
     """Inpute parameters for the MatGNN data module.
 
     Args:
+        in_memory (bool): Whether to use in memory dataset.
         dataset_params (DatasetParameters): dataset parameters.
         batch_size (Optional[int]): The batch size. Defaults to 64.
         num_workers (Optional[int]): The number of workers. Defaults to 1.
         val_ratio (float): The ratio of validation to training. Defaults to 0.2.
     """
 
+    in_memory: bool
     dataset_params: DatasetParameters
     batch_size: int = 64
     num_workers: int = 12
     val_ratio: float = 0.2
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Returns a dictionary representation of the DataModuleParameters.
-
-        Returns:
-            dict: A dictionary representation of the DataModuleParameters.
-        """
-        return {
-            "dataset_params": self.dataset_params.to_dict(),
-            "batch_size": self.batch_size,
-            "num_workers": self.num_workers,
-            "val_ratio": self.val_ratio,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DataModuleParameters":
-        """Creates a DataModuleParameters object from a dictionary.
-
-        Args:
-            data (dict): A dictionary representation of the DataModuleParameters.
-
-        Returns:
-            DataModuleParameters: A DataModuleParameters object.
-        """
-        return cls(
-            dataset_params=DatasetParameters.from_dict(
-                data.get("dataset_params", {"feature_type": "CM"})
-            ),
-            batch_size=data.get("batch_size", 64),
-            num_workers=data.get("num_workers", 1),
-            val_ratio=data.get("val_ratio", 0.2),
-        )
 
 
 class MaterialsGraphDataModule(pl.LightningDataModule):
@@ -76,7 +46,7 @@ class MaterialsGraphDataModule(pl.LightningDataModule):
     def __init__(self, params: DataModuleParameters):
         super().__init__()
         validate_data_module_parameters(params)
-        self.dataset = create_dataset(params.dataset_params)
+        self.dataset = create_dataset(params.in_memory, params.dataset_params)
         self.batch_size = params.batch_size
         self.num_workers = params.num_workers
         self.val_ratio = params.val_ratio

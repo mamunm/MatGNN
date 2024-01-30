@@ -38,7 +38,7 @@ class MatGNNParameters(NamedTuple):
     def to_dict(self) -> Dict[str, Any]:
         """Convert the input parameters to a dictionary."""
         return {
-            "model_params": self.model_params.to_dict(),  # type: ignore
+            "model_params": self.model_params.to_dict(),
             "optimizer": self.optimizer,
             "scheduler": self.scheduler,
             "optimizer_parameters": self.optimizer_parameters,

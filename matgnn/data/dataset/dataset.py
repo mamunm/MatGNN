@@ -5,7 +5,7 @@ from typing import Dict, List, Union
 
 import torch
 from ase import db
-from dscribe.descriptors import ACSF, SOAP, CoulombMatrix, SineMatrix
+from dscribe.descriptors import SOAP, CoulombMatrix, SineMatrix
 from torch_geometric.data import Data, Dataset
 
 from .atom_graph import get_atom_graph_data
@@ -37,14 +37,17 @@ class MolGraphDataset(Dataset):  # type: ignore
         root = Path(params.ase_db_loc).parent / get_dir_name(params)
         if not root.exists():
             root.mkdir()
+        self.process_has_been_called = False
         super(MolGraphDataset, self).__init__(root=root)
-        self.load(self.processed_paths[0])
-        self.n_features = self._data.x.shape[1]
+        if not self.process_has_been_called:
+            print("Processing...")
+            self.process()
+            print("Done!")
 
     @property
     def processed_file_names(self) -> List[str]:
         """Processed file names."""
-        return list(map(str, Path(self.processed_dir[0]).glob("*.pt")))
+        return list(map(str, Path(self.processed_dir).glob("*.pt")))
 
     def len(self) -> int:
         """Length of dataset."""
@@ -56,7 +59,8 @@ class MolGraphDataset(Dataset):  # type: ignore
 
     def process(self) -> None:
         """Process data."""
-        if self.params.feature_type in ["CM", "SM", "SOAP", "ACSF"]:
+        self.process_has_been_called = True
+        if self.params.feature_type in ["CM", "SM", "SOAP"]:
             data_list = []
             dtype = DTYPE_MAP[self.params.dtype]
 
@@ -64,7 +68,7 @@ class MolGraphDataset(Dataset):  # type: ignore
 
             feature_constructor = self.get_feature_constructor()
 
-            for struct in ase_db.select():
+            for i, struct in enumerate(ase_db.select()):
                 y = getattr(struct, self.params.target)
                 x = feature_constructor.create(struct.toatoms())
                 data_list.append(
@@ -76,12 +80,13 @@ class MolGraphDataset(Dataset):  # type: ignore
         else:
             data_list = get_atom_graph_data(
                 self.params.ase_db_loc,
+                self.params.target,
                 self.params.extra_parameters,  # type: ignore
                 dtype=DTYPE_MAP[self.params.dtype],
             )
 
         for idx, data in enumerate(data_list):
-            torch.save(data, Path(self.processed_paths[0]) / f"data_{idx}.pt")
+            torch.save(data, Path(self.processed_dir) / f"data_{idx}.pt")
 
     def get_feature_constructor(self) -> Union[SineMatrix, CoulombMatrix]:
         """Get feature.
@@ -102,26 +107,15 @@ class MolGraphDataset(Dataset):  # type: ignore
                 permutation="eigenspectrum",
                 sparse=False,
             )
-        elif self.params.feature_type == "SOAP":
+        else:
             return SOAP(
                 species=data_statistics["species"],
-                periodic=self.params.extra_parameters["periodic"],
-                n_max=self.params.extra_parameters["n_max"],
-                l_max=self.params.extra_parameters["l_max"],
-                r_cut=self.params.extra_parameters["r_cut"],
-                sigma=self.params.extra_parameters["sigma"],
+                periodic=self.params.extra_parameters.periodic,  # type: ignore
+                n_max=self.params.extra_parameters.n_max,  # type: ignore
+                l_max=self.params.extra_parameters.l_max,  # type: ignore
+                r_cut=self.params.extra_parameters.r_cut,  # type: ignore
+                sigma=self.params.extra_parameters.sigma,  # type: ignore
                 sparse=False,
                 average="inner",
                 rbf="gto",
-            )
-        else:
-            return ACSF(
-                species=data_statistics["species"],
-                periodic=self.params.extra_parameters["periodic"],
-                r_cut=self.params.extra_parameters["r_cut"],
-                g2_params=self.params.extra_parameters["g2_params"],
-                g3_params=self.params.extra_parameters["g3_params"],
-                g4_params=self.params.extra_parameters["g4_params"],
-                g5_params=self.params.extra_parameters["g5_params"],
-                sparse=False,
             )

@@ -25,24 +25,11 @@ sys.path.append("/path/to/matgnn")
 ## TODO
 
 ```[tasklist]
-Features
-- [X] SOAP
-- [X] ACSF
-- [ ] Atomic graph
-Models
-- [ ] CGCNN
-- [ ] GCN
 - [ ] MEGNET
-- [ ] MPNN
-- [ ] SCHNET
-Data
-- [ ] Dataset
-
-Trainer
 - [ ] Test metrics
 - [ ] logger
 - [ ] saving and loading
-- [ ] continue training
+- [ ] continue training from checkpoint
 - [ ] Hyperparameter
 ```
 

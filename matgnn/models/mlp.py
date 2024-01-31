@@ -1,7 +1,7 @@
 """Multi Layer Perceptron for MatGNN."""
 
 import math
-from typing import Any, Dict, NamedTuple
+from typing import Any, Dict, Literal, NamedTuple
 
 import torch
 from torch import Tensor, nn
@@ -28,7 +28,7 @@ class MLPParameters(NamedTuple):
     activation: str
     activation_parameters: Dict[str, Any] = {}
     layer_norm: bool = False
-    dtype: str = "64"
+    dtype: Literal["f64", "f32", "f16", "bf16"] = "f64"
 
     def to_dict(self) -> Dict[str, Any]:
         """Returns a dictionary representation of the MLPParameters.

@@ -17,9 +17,9 @@ from .utils import (
 )
 
 DTYPE_MAP: Dict[str, torch.dtype] = {
-    "f64": torch.float64,
-    "f32": torch.float32,
-    "f16": torch.float16,
+    "64": torch.float64,
+    "32": torch.float32,
+    "16": torch.float16,
     "bf16": torch.bfloat16,
 }
 

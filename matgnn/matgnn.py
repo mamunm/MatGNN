@@ -10,8 +10,10 @@ from torch.nn import MSELoss
 from torch.optim import Optimizer
 from torch_geometric.data import Data
 
-from ..models.create_model import ModelParams, create_model
-from ..models.mlp import MLPParameters
+from .models.conv_nn import GraphConvolutionParameters
+from .models.create_model import ModelParams, create_model
+from .models.mlp import MLP, MLPParameters
+from .models.mpnn import MPNN, MPNNParameters
 from .utils import get_optimizer, get_scheduler
 
 AVAILABLE_OPTIMIZERS: List[str] = ["adam", "sgd"]
@@ -55,7 +57,12 @@ class MatGNNParameters(NamedTuple):
         Returns:
             TrainerParameters: Input parameters.
         """
-        model_params = MLPParameters.from_dict(d["model_params"])
+        if "gcn_type" in d["model_params"]:
+            model_params = GraphConvolutionParameters.from_dict(d["model_params"])
+        elif "gcn_hidden_size" in d["model_params"]:
+            model_params = MPNNParameters.from_dict(**d)  # type: ignore
+        else:
+            model_params = MLPParameters.from_dict(**d)  # type: ignore
         return cls(
             model_params=model_params,
             optimizer=d["optimizer"],
@@ -110,18 +117,38 @@ class MatGNN(pl.LightningModule):
                 scheduler_configs["monitor"] = "val_loss"
             return {"optimizer": optimizer, "lr_scheduler": scheduler_configs}
 
-    def forward(self, graph_data: Data) -> Tensor:
+    def forward(
+        self,
+        X: Tensor,
+        edge_idx: Optional[Tensor] = None,
+        edge_weight: Optional[Tensor] = None,
+        edge_attr: Optional[Tensor] = None,
+        batch_map: Optional[Tensor] = None,
+    ) -> Tensor:
         """
         Get the prediction of a batch of features.
 
         Args:
-            graph_data (Data): The input features.
+            X (Tensor): The input features.
+            edge_idx (Optional[Tensor], optional): The edge index.
+                Defaults to None.
+            edge_weight (Optional[Tensor], optional): The edge weights.
+                Defaults to None.
+            edge_attr (Optional[Tensor], optional): The edge attributes.
+                Defaults to None.
+            batch_map (Optional[Tensor], optional): The batch map.
+                Defaults to None.
 
         Returns:
             Tensor: The prediction of the model.
         """
 
-        predictions: Tensor = self.model(graph_data)
+        if isinstance(self.model, MLP):
+            predictions: Tensor = self.model(X)
+        elif isinstance(self.model, MPNN):
+            predictions = self.model(X, edge_idx, edge_attr, batch_map)
+        else:
+            predictions = self.model(X, edge_idx, edge_weight, edge_attr, batch_map)
 
         return predictions
 
@@ -136,7 +163,24 @@ class MatGNN(pl.LightningModule):
         Returns:
             Tensor: The prediction of the model.
         """
-        predictions = self.model(batch.x).view(-1)  # type: ignore
+
+        if isinstance(self.model, MLP):
+            predictions = self.model(batch.x).view(-1)  # type: ignore
+        if isinstance(self.model, MPNN):
+            predictions = self.model(
+                batch.x,  # type: ignore
+                batch.edge_index,  # type: ignore
+                batch.edge_attr,  # type: ignore
+                batch.batch,  # type: ignore
+            ).view(-1)
+        else:
+            predictions = self.model(
+                batch.x,  # type: ignore
+                batch.edge_index,  # type: ignore
+                batch.edge_weight,  # type: ignore
+                batch.edge_attr,  # type: ignore
+                batch.batch,  # type: ignore
+            ).view(-1)
 
         loss: Tensor = self.loss(predictions, batch.y)  # type: ignore
         self.train_outputs.append(loss.item())
@@ -164,7 +208,24 @@ class MatGNN(pl.LightningModule):
         Returns:
             Tensor: The prediction of the model.
         """
-        predictions = self.model(batch.x).view(-1)  # type: ignore
+
+        if isinstance(self.model, MLP):
+            predictions = self.model(batch.x).view(-1)  # type: ignore
+        if isinstance(self.model, MPNN):
+            predictions = self.model(
+                batch.x,  # type: ignore
+                batch.edge_index,  # type: ignore
+                batch.edge_attr,  # type: ignore
+                batch.batch,  # type: ignore
+            ).view(-1)
+        else:
+            predictions = self.model(
+                batch.x,  # type: ignore
+                batch.edge_index,  # type: ignore
+                batch.edge_weight,  # type: ignore
+                batch.edge_attr,  # type: ignore
+                batch.batch,  # type: ignore
+            ).view(-1)
 
         val_loss: Tensor = self.loss(predictions, batch.y)  # type: ignore
         self.val_outputs.append(val_loss.item())

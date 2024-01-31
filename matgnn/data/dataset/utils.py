@@ -126,8 +126,8 @@ def validate_dataset_parameters(params: DatasetParameters) -> None:
         raise ValueError("ase_db_loc must be a string.")
     if not Path(params.ase_db_loc).exists():
         raise ValueError("ase_db_loc must be a valid file.")
-    if params.dtype not in ["f64", "f32", "f16", "bf16"]:
-        raise ValueError("dtype must be one of the following: f64, f32, f16, bf16.")
+    if params.dtype not in ["64", "32", "16", "bf16"]:
+        raise ValueError("dtype must be one of the following: 64, 32, 16, bf16.")
 
 
 class GaussianSmearing(torch.nn.Module):

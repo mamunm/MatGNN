@@ -1,11 +1,10 @@
 """Convolution GNN for MatGNN."""
 
-from typing import Any, Dict, Literal, NamedTuple
+from typing import Any, Dict, Literal, NamedTuple, Tuple
 
 import torch
 import torch_geometric.nn as pyg_nn
 from torch import Tensor, nn
-from torch_geometric.nn.models.schnet import InteractionBlock
 
 from .utils import get_activation, get_pool
 
@@ -17,8 +16,8 @@ DTYPE_MAP: Dict[str, torch.dtype] = {
 }
 
 
-class GraphConvolutionParameters(NamedTuple):
-    """Inpute parameters for the GraphConvolution model.
+class MPNNParameters(NamedTuple):
+    """Inpute parameters for the MPNN model.
 
     Args:
         n_features (int): number of features.
@@ -26,8 +25,6 @@ class GraphConvolutionParameters(NamedTuple):
         batch_size (int): batch size.
         pre_hidden_size (int): size of the pre-GCN hidden layers.
         post_hidden_size (int): size of the post-GCN hidden layers.
-        gcn_type (Literal["mpnn", "gcn", "cgcnn", "schnet"]): type of the
-            graph convolution.
         gcn_hidden_size (int): size of the GCN hidden layers.
         n_pre_gcn_layers (int): number of the pre-GCN layers.
         n_post_gcn_layers (int): number of the post-GCN layers.
@@ -49,7 +46,6 @@ class GraphConvolutionParameters(NamedTuple):
     batch_size: int
     pre_hidden_size: int = 64
     post_hidden_size: int = 64
-    gcn_type: Literal["gcn", "cgcnn", "schnet"] = "gcn"
     gcn_hidden_size: int = 64
     n_pre_gcn_layers: int = 3
     n_post_gcn_layers: int = 3
@@ -76,7 +72,6 @@ class GraphConvolutionParameters(NamedTuple):
             "batch_size": self.batch_size,
             "pre_hidden_size": self.pre_hidden_size,
             "post_hidden_size": self.post_hidden_size,
-            "gcn_type": self.gcn_type,
             "gcn_hidden_size": self.gcn_hidden_size,
             "n_pre_gcn_layers": self.n_pre_gcn_layers,
             "n_post_gcn_layers": self.n_post_gcn_layers,
@@ -93,39 +88,42 @@ class GraphConvolutionParameters(NamedTuple):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "GraphConvolutionParameters":
-        """Constructs a GraphConvolutionParameters from a dictionary.
+    def from_dict(cls, data: Dict[str, Any]) -> "MPNNParameters":
+        """Constructs a MPNNParameters from a dictionary.
 
         Args:
             data (Dict[str, Any]): A dictionary representation of the
-                GraphConvolutionParameters.
+                MPNNParameters.
 
         Returns:
-            GraphConvolutionParameters: A GraphConvolutionParameters object.
+            MPNNParameters: A MPNNParameters object.
         """
         return cls(**data)
 
 
-class GraphConvolution(nn.Module):
+class MPNN(nn.Module):
     """
-    Graph Convolution Network.
+    Message passing GNN
 
     Args:
-        mpnn_params (GraphConvolutionParameters): parameters defining the GCN.
+        mpnn_params (MPNNParameters): parameters defining the GCN.
     """
 
-    def __init__(self, gcn_params: GraphConvolutionParameters) -> None:
-        super(GraphConvolution, self).__init__()
+    def __init__(self, gcn_params: MPNNParameters) -> None:
+        super(MPNN, self).__init__()
         self.params = gcn_params
         self.pre_GC_layers = self.construct_pre_GC_layers()
         self.post_GC_layers = self.construct_post_GC_layers()
-        self.gcn_layers = [
-            self.construct_gcn_layers() for _ in range(self.params.n_gcn)
-        ]
-        for gcn_layer in self.gcn_layers:
+        self.gcn_layers, self.grus = [], []
+        for _ in range(self.params.n_gcn):
+            gcn, gru = self.construct_gcn_layers()
+            self.gcn_layers.append(gcn)
+            self.grus.append(gru)
+        for gcn_layer, gru in zip(self.gcn_layers, self.grus):
             dtype = DTYPE_MAP[gcn_params.dtype]
             device = "cpu" if gcn_params.device == "cpu" else "cuda:0"
             gcn_layer = gcn_layer.to(dtype=dtype, device=device)  # type: ignore
+            gru = gru.to(dtype=dtype, device=device)  # type: ignore
         pool_parameters = self.construct_pool_parameters()
         self.pool_func = get_pool(gcn_params.pool, pool_parameters)
         if self.params.pool_order == "late" and self.params.pool == "set2set":
@@ -134,12 +132,7 @@ class GraphConvolution(nn.Module):
             self.post_linear = nn.Identity()  # type: ignore
 
     def forward(
-        self,
-        X: Tensor,
-        edge_idx: Tensor,
-        edge_weight: Tensor,
-        edge_attr: Tensor,
-        batch_map: Tensor,
+        self, X: Tensor, edge_idx: Tensor, edge_attr: Tensor, batch_map: Tensor
     ) -> Tensor:
         """
         Get the prediction of a batch of features.
@@ -147,7 +140,6 @@ class GraphConvolution(nn.Module):
         Args:
             X (Tensor): The input features.
             edge_idx (Tensor): The input edge indices.
-            edge_weight (Tensor): The input edge weights.
             edge_attr (Tensor): The input edge attributes.
             batch_map (Tensor): The batch map.
 
@@ -155,11 +147,11 @@ class GraphConvolution(nn.Module):
             Tensor: The prediction of the model.
         """
         out: Tensor = self.pre_GC_layers(X)
-        for gcn_layer in self.gcn_layers:
-            if self.params.gcn_type in ["schnet"]:
-                out = gcn_layer(out, edge_idx, edge_weight, edge_attr.view(-1, 1))
-            else:
-                out = gcn_layer(out, edge_idx, edge_attr.view(-1, 1))
+        for gcn_layer, gru in zip(self.gcn_layers, self.grus):
+            h = out.unsqueeze(0)
+            out = gcn_layer(out, edge_idx, edge_attr.view(-1, 1))
+            out, h = gru(out.unsqueeze(0), h)
+            out = out.squeeze(0)
         if self.params.pool_order == "early":
             out = self.pool_func(out, batch_map)
         out = self.post_GC_layers(out)
@@ -215,7 +207,7 @@ class GraphConvolution(nn.Module):
         layers.append(nn.Linear(input_size, 1))
         return nn.Sequential(*layers)
 
-    def construct_gcn_layers(self) -> nn.Module:
+    def construct_gcn_layers(self) -> Tuple[nn.Module, nn.Module]:
         """Construct the GCN layers.
 
         Returns:
@@ -228,39 +220,18 @@ class GraphConvolution(nn.Module):
             if self.params.n_pre_gcn_layers == 0
             else self.params.pre_hidden_size
         )
-        if self.params.gcn_type == "gcn":
-            layers.append(
-                (
-                    pyg_nn.GCNConv(gc_dim, gc_dim, improved=True, add_self_loops=False),
-                    "x, edge_index, edge_attr -> x",
-                )
+        self.gru = nn.GRU(gc_dim, gc_dim)
+        edge_nn = nn.Sequential(
+            nn.Linear(self.params.n_edge_features, self.params.gcn_hidden_size),
+            nn.ReLU(inplace=True),
+            nn.Linear(self.params.gcn_hidden_size, gc_dim * gc_dim),
+        )
+        layers.append(
+            (
+                pyg_nn.NNConv(gc_dim, gc_dim, edge_nn, aggr="mean"),
+                "x, edge_index, edge_attr -> x",
             )
-        elif self.params.gcn_type == "cgcnn":
-            layers.append(
-                (
-                    pyg_nn.CGConv(
-                        gc_dim,
-                        self.params.n_edge_features,
-                        aggr="mean",
-                        batch_norm=False,
-                    ),
-                    "x, edge_index, edge_attr -> x",
-                )
-            )
-        elif self.params.gcn_type == "schnet":
-            layers.append(
-                (
-                    InteractionBlock(
-                        gc_dim,
-                        self.params.n_edge_features,
-                        self.params.gcn_hidden_size,
-                        self.params.schnet_cutoff,
-                    ),
-                    "x, edge_index, edge_weight, edge_attr -> x",
-                )
-            )
-        else:
-            raise ValueError(f"GCN type {self.params.gcn_type} not supported.")
+        )
         if self.params.batch_norm:
             layers.append(
                 (
@@ -273,13 +244,9 @@ class GraphConvolution(nn.Module):
         layers.append(act)  # type: ignore
         if self.params.dropout > 0:
             layers.append(nn.Dropout(self.params.dropout, inplace=True))  # type: ignore
-        if self.params.gcn_type == "schnet":
-            gc_model: nn.Module = pyg_nn.Sequential(
-                "x, edge_index, edge_weight, edge_attr", layers
-            )
-        else:
-            gc_model = pyg_nn.Sequential("x, edge_index, edge_attr", layers)
-        return gc_model
+
+        gc_model: nn.Module = pyg_nn.Sequential("x, edge_index, edge_attr", layers)
+        return gc_model, self.gru
 
     def construct_pool_parameters(self) -> Dict[str, Any]:
         """Construct the pooling parameters.

@@ -5,15 +5,16 @@ from typing import Dict, Union
 import torch
 from torch import nn
 
-from .conv_nn import ConvolutionGNNParameters, GraphConvolution
+from .conv_nn import GraphConvolution, GraphConvolutionParameters
 from .mlp import MLP, MLPParameters, validate_mlp_parameters
+from .mpnn import MPNN, MPNNParameters
 
-ModelParams = Union[MLPParameters, ConvolutionGNNParameters]
+ModelParams = Union[MLPParameters, MPNNParameters, GraphConvolutionParameters]
 
 DTYPE_MAP: Dict[str, torch.dtype] = {
-    "f64": torch.float64,
-    "f32": torch.float32,
-    "f16": torch.float16,
+    "64": torch.float64,
+    "32": torch.float32,
+    "16": torch.float16,
     "bf16": torch.bfloat16,
 }
 
@@ -40,9 +41,11 @@ def create_model(model_params: ModelParams) -> nn.Module:
     Returns:
         Model: A model instance.
     """
-    dtype = DTYPE_MAP[model_params.dtype]  # type: ignore
+    dtype = DTYPE_MAP[model_params.dtype]
     validate_model_parameters(model_params)
     if isinstance(model_params, MLPParameters):
         return MLP(model_params).to(dtype=dtype)
+    elif isinstance(model_params, MPNNParameters):
+        return MPNN(model_params).to(dtype=dtype)
     else:
         return GraphConvolution(model_params).to(dtype=dtype)

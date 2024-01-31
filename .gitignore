@@ -33,9 +33,10 @@ htmlcov
 # Data files
 DATA/
 *.db
+*.json
 !dummy.db
 CM*
 SM*
 SOAP*
 ACSF*
-AGraph*
+AtomGraph*

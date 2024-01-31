@@ -2,11 +2,6 @@
 
 > A python library written in pytorch lightning to train GNN for materials science research.
 
-Besides functionality to perform a typical GNN training, MatGNN's highlights are:
-
-- Data module
-- hyperparameter
-
 ## Installation
 
 To create a virtual environment for MatGNN using conda or mamba, run the following command:

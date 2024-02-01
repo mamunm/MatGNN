@@ -27,9 +27,6 @@ build
 .pytest_cache
 htmlcov
 
-# Pictures created by backtesting
-*.png
-
 # Data files
 DATA/
 *.db

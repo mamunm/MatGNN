@@ -199,9 +199,9 @@ class GraphConvolution(nn.Module):
         layers = nn.ModuleList()
         act = get_activation(self.params.activation)
         input_size = (
-            2 * self.params.post_hidden_size
+            2 * self.params.pre_hidden_size
             if self.params.pool == "set2set"
-            else self.params.post_hidden_size
+            else self.params.pre_hidden_size
         )
         output_size = self.params.post_hidden_size
         if self.params.n_post_gcn_layers == 0:

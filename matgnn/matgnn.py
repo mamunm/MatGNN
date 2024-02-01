@@ -3,10 +3,9 @@
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import pytorch_lightning as pl
-import torch
 from loguru import logger
 from torch import Tensor
-from torch.nn import MSELoss
+from torch.nn import L1Loss
 from torch.optim import Optimizer
 from torch_geometric.data import Data
 
@@ -84,9 +83,9 @@ class MatGNN(pl.LightningModule):
         self.save_hyperparameters()
         self.input_params = params
         self.model = create_model(params.model_params)
-        self.loss = MSELoss()
-        self.train_outputs: List[float] = []
-        self.val_outputs: List[float] = []
+        self.loss = L1Loss()
+        self.train_outputs: List[Tuple[int | float]] = []
+        self.val_outputs: List[Tuple[int | float]] = []
 
     def configure_optimizers(self) -> Union[Optimizer, Dict[str, Any]]:
         """
@@ -183,7 +182,7 @@ class MatGNN(pl.LightningModule):
             ).view(-1)
 
         loss: Tensor = self.loss(predictions, batch.y)  # type: ignore
-        self.train_outputs.append(loss.item())
+        self.train_outputs.append((loss.item(), len(batch.y)))  # type: ignore
         return loss
 
     def on_train_epoch_end(self) -> None:
@@ -193,9 +192,12 @@ class MatGNN(pl.LightningModule):
         Args:
             outputs (List[Dict[str, Tensor]]): the loss of each batch in the epoch
         """
-        mean_loss = torch.mean(torch.tensor(self.train_outputs))
+        total_loss = sum(item[0] * item[1] for item in self.train_outputs)  # type: ignore
+        n_data = sum(item[1] for item in self.train_outputs)  # type: ignore
+        mean_loss = total_loss / n_data
+        self.train_outputs.clear()
         self.log("train_loss", mean_loss, on_epoch=True, prog_bar=False)
-        logger.info(f"Epoch: {self.current_epoch} | Training loss: {mean_loss}")
+        logger.info(f"Epoch: {self.current_epoch} | Training loss: {mean_loss:.4f}")
 
     def validation_step(self, batch: Tuple[Data], batch_idx: int) -> Dict[str, float]:
         """
@@ -228,7 +230,7 @@ class MatGNN(pl.LightningModule):
             ).view(-1)
 
         val_loss: Tensor = self.loss(predictions, batch.y)  # type: ignore
-        self.val_outputs.append(val_loss.item())
+        self.val_outputs.append((val_loss.item(), len(batch.y)))  # type: ignore
 
         return {"val_loss": val_loss.item()}
 
@@ -236,10 +238,13 @@ class MatGNN(pl.LightningModule):
         """
         Compute the loss per molecule for the validation set and log.
         """
-        val_loss = torch.mean(torch.tensor(self.val_outputs))
+        total_loss = sum(item[0] * item[1] for item in self.val_outputs)  # type: ignore
+        n_data = sum(item[1] for item in self.val_outputs)  # type: ignore
+        val_loss = total_loss / n_data
+        self.val_outputs.clear()
 
         self.log("val_loss", val_loss, on_epoch=True, prog_bar=False)
-        logger.info(f"Epoch: {self.current_epoch} | Validation loss: {val_loss}")
+        logger.info(f"Epoch: {self.current_epoch} | Validation loss: {val_loss:.4f}")
 
 
 def validate_trainer_parameters(params: MatGNNParameters) -> None:

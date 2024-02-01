@@ -1,4 +1,6 @@
-# MatGNN: Graph Neural Network Library for Materials Science Research
+# MatGNN: Graph Neural Network Library for Materials Science
+
+![MatGNN Logo](images/logo.png)
 
 > A python library written in pytorch lightning to train GNN for materials science research.
 

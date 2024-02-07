@@ -140,8 +140,6 @@ Running this script will print the training statistics on the console.
 - [ ] saving and loading
 - [ ] continue training from checkpoint
 - [ ] Hyperparameter
-- [ ] QM9
-- [ ] CatHub surface data
 - [ ] Weight initialization
 ```
 

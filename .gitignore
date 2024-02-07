@@ -31,6 +31,9 @@ htmlcov
 DATA/
 *.db
 *.json
+*.xyz
+*.tar.bz2
+*.log
 !dummy.db
 CM*
 SM*

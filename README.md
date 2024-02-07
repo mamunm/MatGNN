@@ -142,6 +142,7 @@ Running this script will print the training statistics on the console.
 - [ ] Hyperparameter
 - [ ] QM9
 - [ ] CatHub surface data
+- [ ] Weight initialization
 ```
 
 ## Author
